@@ -1,0 +1,574 @@
+{
+  "total_entities_detected": 156,
+  "label_distribution": {
+    "ORG": 82,
+    "LAW": 16,
+    "DATE": 19,
+    "PERSON": 36,
+    "GPE": 3
+  },
+  "top_entities": [
+    [
+      "NLP",
+      6
+    ],
+    [
+      "2014",
+      2
+    ],
+    [
+      "2019",
+      2
+    ],
+    [
+      "2018",
+      2
+    ],
+    [
+      "linear",
+      2
+    ],
+    [
+      "NER",
+      2
+    ],
+    [
+      "Advanced Architectures Academic Reference Handbook - Volume 1",
+      1
+    ],
+    [
+      "NLP Research Group",
+      1
+    ],
+    [
+      "Sameer Sirsath & Rameshwar Sanap",
+      1
+    ],
+    [
+      "Chapter 1: Foundations of Natural Language Processing Natural Language Processing (",
+      1
+    ],
+    [
+      "the 1990s",
+      1
+    ],
+    [
+      "Markov",
+      1
+    ],
+    [
+      "Chapter 2",
+      1
+    ],
+    [
+      "Morphological Processing, Tokenization",
+      1
+    ],
+    [
+      "Normalization Morphology",
+      1
+    ]
+  ],
+  "entities": [
+    {
+      "page": 1,
+      "text": "Advanced Architectures Academic Reference Handbook - Volume 1",
+      "label": "ORG"
+    },
+    {
+      "page": 1,
+      "text": "NLP Research Group",
+      "label": "ORG"
+    },
+    {
+      "page": 1,
+      "text": "Sameer Sirsath & Rameshwar Sanap",
+      "label": "ORG"
+    },
+    {
+      "page": 1,
+      "text": "Chapter 1: Foundations of Natural Language Processing Natural Language Processing (",
+      "label": "LAW"
+    },
+    {
+      "page": 1,
+      "text": "NLP",
+      "label": "ORG"
+    },
+    {
+      "page": 1,
+      "text": "the 1990s",
+      "label": "DATE"
+    },
+    {
+      "page": 1,
+      "text": "Markov",
+      "label": "PERSON"
+    },
+    {
+      "page": 2,
+      "text": "Chapter 2",
+      "label": "LAW"
+    },
+    {
+      "page": 2,
+      "text": "Morphological Processing, Tokenization",
+      "label": "ORG"
+    },
+    {
+      "page": 2,
+      "text": "Normalization Morphology",
+      "label": "ORG"
+    },
+    {
+      "page": 2,
+      "text": "NLP",
+      "label": "ORG"
+    },
+    {
+      "page": 2,
+      "text": "Byte-Pair Encoding",
+      "label": "ORG"
+    },
+    {
+      "page": 2,
+      "text": "BPE",
+      "label": "ORG"
+    },
+    {
+      "page": 2,
+      "text": "WordPiece",
+      "label": "ORG"
+    },
+    {
+      "page": 2,
+      "text": "SentencePiece",
+      "label": "ORG"
+    },
+    {
+      "page": 2,
+      "text": "Porter Stemmer",
+      "label": "PERSON"
+    },
+    {
+      "page": 2,
+      "text": "Martin Porter",
+      "label": "PERSON"
+    },
+    {
+      "page": 2,
+      "text": "1980",
+      "label": "DATE"
+    },
+    {
+      "page": 2,
+      "text": "WordNet",
+      "label": "ORG"
+    },
+    {
+      "page": 3,
+      "text": "Chapter 3",
+      "label": "LAW"
+    },
+    {
+      "page": 3,
+      "text": "Lexical Semantics",
+      "label": "ORG"
+    },
+    {
+      "page": 3,
+      "text": "Stopwords",
+      "label": "PERSON"
+    },
+    {
+      "page": 3,
+      "text": "Vocabulary Statistics",
+      "label": "ORG"
+    },
+    {
+      "page": 3,
+      "text": "George Kingsley Zipf",
+      "label": "PERSON"
+    },
+    {
+      "page": 3,
+      "text": "Stopword Filtering",
+      "label": "ORG"
+    },
+    {
+      "page": 3,
+      "text": "\\'in\\",
+      "label": "PERSON"
+    },
+    {
+      "page": 3,
+      "text": "NLP",
+      "label": "ORG"
+    },
+    {
+      "page": 3,
+      "text": "Law",
+      "label": "PERSON"
+    },
+    {
+      "page": 4,
+      "text": "Chapter 4",
+      "label": "LAW"
+    },
+    {
+      "page": 4,
+      "text": "Gerard Salton",
+      "label": "PERSON"
+    },
+    {
+      "page": 4,
+      "text": "the Vector Space Model",
+      "label": "ORG"
+    },
+    {
+      "page": 4,
+      "text": "VSM",
+      "label": "ORG"
+    },
+    {
+      "page": 4,
+      "text": "Frequency",
+      "label": "PERSON"
+    },
+    {
+      "page": 4,
+      "text": "TF",
+      "label": "ORG"
+    },
+    {
+      "page": 4,
+      "text": "1 + log(count(t",
+      "label": "DATE"
+    },
+    {
+      "page": 4,
+      "text": "count(t, d)",
+      "label": "ORG"
+    },
+    {
+      "page": 4,
+      "text": "Inverse Document Frequency",
+      "label": "ORG"
+    },
+    {
+      "page": 4,
+      "text": "1 + |D|",
+      "label": "DATE"
+    },
+    {
+      "page": 4,
+      "text": "L2 Euclidean",
+      "label": "PERSON"
+    },
+    {
+      "page": 4,
+      "text": "||A||",
+      "label": "LAW"
+    },
+    {
+      "page": 5,
+      "text": "Chapter 5",
+      "label": "LAW"
+    },
+    {
+      "page": 5,
+      "text": "Dense Vector Representations",
+      "label": "ORG"
+    },
+    {
+      "page": 5,
+      "text": "J.R. Firth",
+      "label": "PERSON"
+    },
+    {
+      "page": 5,
+      "text": "1957",
+      "label": "DATE"
+    },
+    {
+      "page": 5,
+      "text": "Tomas Mikolov",
+      "label": "PERSON"
+    },
+    {
+      "page": 5,
+      "text": "2013",
+      "label": "DATE"
+    },
+    {
+      "page": 5,
+      "text": "Continuous Bag of Words",
+      "label": "PERSON"
+    },
+    {
+      "page": 5,
+      "text": "CBOW",
+      "label": "ORG"
+    },
+    {
+      "page": 5,
+      "text": "GloVe",
+      "label": "PERSON"
+    },
+    {
+      "page": 5,
+      "text": "Global Vectors",
+      "label": "ORG"
+    },
+    {
+      "page": 5,
+      "text": "Pennington",
+      "label": "PERSON"
+    },
+    {
+      "page": 5,
+      "text": "2014",
+      "label": "DATE"
+    },
+    {
+      "page": 5,
+      "text": "2019",
+      "label": "DATE"
+    },
+    {
+      "page": 5,
+      "text": "Sentence-BERT",
+      "label": "ORG"
+    },
+    {
+      "page": 5,
+      "text": "SBERT",
+      "label": "ORG"
+    },
+    {
+      "page": 6,
+      "text": "Chapter 6",
+      "label": "LAW"
+    },
+    {
+      "page": 6,
+      "text": "Sequential Deep Learning Architectures",
+      "label": "ORG"
+    },
+    {
+      "page": 6,
+      "text": "NLP",
+      "label": "ORG"
+    },
+    {
+      "page": 6,
+      "text": "Recurrent Neural Networks",
+      "label": "ORG"
+    },
+    {
+      "page": 6,
+      "text": "Standard Jordan/Elman",
+      "label": "ORG"
+    },
+    {
+      "page": 6,
+      "text": "Backpropagation Through Time (BPTT",
+      "label": "ORG"
+    },
+    {
+      "page": 6,
+      "text": "Long Short-Term Memory",
+      "label": "PERSON"
+    },
+    {
+      "page": 6,
+      "text": "Hochreiter",
+      "label": "PERSON"
+    },
+    {
+      "page": 6,
+      "text": "Schmidhuber",
+      "label": "PERSON"
+    },
+    {
+      "page": 6,
+      "text": "1997",
+      "label": "DATE"
+    },
+    {
+      "page": 6,
+      "text": "the Long Short-Term Memory",
+      "label": "PERSON"
+    },
+    {
+      "page": 6,
+      "text": "sigma(W_o",
+      "label": "GPE"
+    },
+    {
+      "page": 6,
+      "text": "Gated Recurrent Unit",
+      "label": "ORG"
+    },
+    {
+      "page": 6,
+      "text": "GRU",
+      "label": "ORG"
+    },
+    {
+      "page": 6,
+      "text": "Cho et al",
+      "label": "PERSON"
+    },
+    {
+      "page": 6,
+      "text": "2014",
+      "label": "DATE"
+    },
+    {
+      "page": 6,
+      "text": "Reset and Update",
+      "label": "ORG"
+    },
+    {
+      "page": 7,
+      "text": "Chapter 7: The Transformer Architecture and Self-Attention",
+      "label": "LAW"
+    },
+    {
+      "page": 7,
+      "text": "2017",
+      "label": "DATE"
+    },
+    {
+      "page": 7,
+      "text": "Vaswani",
+      "label": "PERSON"
+    },
+    {
+      "page": 7,
+      "text": "the Multi-Head Self-Attention",
+      "label": "ORG"
+    },
+    {
+      "page": 7,
+      "text": "GPU",
+      "label": "ORG"
+    },
+    {
+      "page": 7,
+      "text": "Keys K",
+      "label": "PERSON"
+    },
+    {
+      "page": 7,
+      "text": "Queries",
+      "label": "ORG"
+    },
+    {
+      "page": 7,
+      "text": "Keys",
+      "label": "PERSON"
+    },
+    {
+      "page": 7,
+      "text": "head_h",
+      "label": "PERSON"
+    },
+    {
+      "page": 8,
+      "text": "Chapter 8",
+      "label": "LAW"
+    },
+    {
+      "page": 8,
+      "text": "BERT",
+      "label": "ORG"
+    },
+    {
+      "page": 8,
+      "text": "NLP",
+      "label": "ORG"
+    },
+    {
+      "page": 8,
+      "text": "Devlin et al",
+      "label": "PERSON"
+    },
+    {
+      "page": 8,
+      "text": "2018",
+      "label": "DATE"
+    },
+    {
+      "page": 8,
+      "text": "MLM",
+      "label": "ORG"
+    },
+    {
+      "page": 8,
+      "text": "NSP",
+      "label": "ORG"
+    },
+    {
+      "page": 8,
+      "text": "2019",
+      "label": "DATE"
+    },
+    {
+      "page": 8,
+      "text": "BERT\\",
+      "label": "ORG"
+    },
+    {
+      "page": 9,
+      "text": "Chapter 9",
+      "label": "LAW"
+    },
+    {
+      "page": 9,
+      "text": "GPT",
+      "label": "ORG"
+    },
+    {
+      "page": 9,
+      "text": "LLaMA",
+      "label": "DATE"
+    },
+    {
+      "page": 9,
+      "text": "Radford",
+      "label": "ORG"
+    },
+    {
+      "page": 9,
+      "text": "GPT-1",
+      "label": "ORG"
+    },
+    {
+      "page": 9,
+      "text": "GPT-3",
+      "label": "ORG"
+    },
+    {
+      "page": 9,
+      "text": "Touvron",
+      "label": "ORG"
+    },
+    {
+      "page": 9,
+      "text": "Meta AI",
+      "label": "PERSON"
+    },
+    {
+      "page": 9,
+      "text": "2023",
+      "label": "DATE"
+    },
+    {
+      "page": 9,
+      "text": "ReLU/GELU",
+      "label": "ORG"
+    }
+  ]
+}

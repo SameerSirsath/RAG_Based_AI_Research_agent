@@ -1,0 +1,19 @@
+========================================================================
+           GENSIM LDA TOPIC MODELING EMPIRICAL BENCHMARK                
+Course: Natural Language Processing (NLP)                               
+Team: Sameer Sirsath (202401110023) & Rameshwar Sanap (202401110021)    
+========================================================================
+
+Hyperparameters: num_topics=5, passes=10, alpha='auto'
+Dictionary Size: 1000 vocabulary terms
+Processed Chunks: 15
+
+------------------------------------------------------------------------
+TOPIC ID | TOP DOMINANT KEYWORDS & CONTRIBUTION WEIGHTS
+------------------------------------------------------------------------
+Topic #1  | model (0.011), tokenization (0.011), language (0.008), bert (0.008), text (0.008), attention (0.008), distilbert (0.008)
+Topic #2  | topic (0.018), state (0.016), cell (0.009), latent (0.009), dirichlet (0.009), gate (0.007), sigma (0.007)
+Topic #3  | language (0.017), models (0.017), natural (0.014), nlp (0.009), llama (0.009), frequency (0.007), statistical (0.007)
+Topic #4  | sentiment (0.022), analysis (0.015), polarity (0.015), stance (0.011), rhetorical (0.011), binary (0.008), academic (0.008)
+Topic #5  | vector (0.014), frequency (0.009), document (0.008), term (0.008), similarity (0.008), vectors (0.008), chromadb (0.008)
+------------------------------------------------------------------------

@@ -1,0 +1,30 @@
+========================================================================
+           EMPIRICAL NLP PREPROCESSING BENCHMARK REPORT                 
+Course: Natural Language Processing (NLP)                               
+Team: Sameer Sirsath (202401110023) & Rameshwar Sanap (202401110021)    
+========================================================================
+
+Target PDF Corpus       : data/sample_book.pdf
+Total Pages Analyzed    : 15
+
+------------------------------------------------------------------------
+METRIC                   | RAW CORPUS       | CLEANED (STEMMED) | REDUCTION (%)
+------------------------------------------------------------------------
+Character Count          | 20813            | 13019             | 37.45%
+Token Count              | 3535             | 1918              | 45.74%
+Unique Vocabulary Size   | 1297             | 852               | 34.31%
+------------------------------------------------------------------------
+
+Sample Stemming Transformations (Top 10):
+  - 'natural' -> 'natur'
+  - 'language' -> 'languag'
+  - 'processing' -> 'process'
+  - 'foundations' -> 'foundat'
+  - 'advanced' -> 'advanc'
+  - 'architectures' -> 'architectur'
+  - 'academic' -> 'academ'
+  - 'reference' -> 'refer'
+  - 'volume' -> 'volum'
+  - 'authors' -> 'author'
+
+Morphological analysis confirms significant dimensional pruning suitable for vector space indexing.

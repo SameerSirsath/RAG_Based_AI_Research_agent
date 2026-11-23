@@ -1,0 +1,29 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment & Secret files (DO NOT COMMIT SECRETS)
+.env
+.env.local
+*.env
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Dynamic temporary caches
+data/arxiv_cache/
+*.log
+.pytest_cache/
+# ChromaDB persistent storage (auto-built from corpus on startup)
+chroma_db/
+chroma_db_test/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
