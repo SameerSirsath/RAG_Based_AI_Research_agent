@@ -4,16 +4,17 @@ Course: Natural Language Processing (NLP)
 Team: Sameer Sirsath (202401110023) & Rameshwar Sanap (202401110021)    
 ========================================================================
 
+Engine: Gensim LdaModel
 Hyperparameters: num_topics=5, passes=10, alpha='auto'
-Dictionary Size: 1000 vocabulary terms
-Processed Chunks: 15
+Dictionary Size: 22 vocabulary terms
+Processed Chunks: 3
 
 ------------------------------------------------------------------------
 TOPIC ID | TOP DOMINANT KEYWORDS & CONTRIBUTION WEIGHTS
 ------------------------------------------------------------------------
-Topic #1  | model (0.011), tokenization (0.011), language (0.008), bert (0.008), text (0.008), attention (0.008), distilbert (0.008)
-Topic #2  | topic (0.018), state (0.016), cell (0.009), latent (0.009), dirichlet (0.009), gate (0.007), sigma (0.007)
-Topic #3  | language (0.017), models (0.017), natural (0.014), nlp (0.009), llama (0.009), frequency (0.007), statistical (0.007)
-Topic #4  | sentiment (0.022), analysis (0.015), polarity (0.015), stance (0.011), rhetorical (0.011), binary (0.008), academic (0.008)
-Topic #5  | vector (0.014), frequency (0.009), document (0.008), term (0.008), similarity (0.008), vectors (0.008), chromadb (0.008)
+Topic #1  | deep (0.097), networks (0.097), neural (0.097), revolutionized (0.097), language (0.097), learning (0.097), processing (0.097)
+Topic #2  | semantic (0.045), mechanism (0.045), embeddings (0.045), capture (0.045), word (0.045), long (0.045), learning (0.045)
+Topic #3  | capture (0.045), embeddings (0.045), word (0.045), language (0.045), transformers (0.045), context (0.045), attention (0.045)
+Topic #4  | natural (0.046), processing (0.046), learning (0.045), revolutionized (0.045), language (0.045), neural (0.045), networks (0.045)
+Topic #5  | space (0.065), attention (0.065), allows (0.065), long (0.065), map (0.065), representations (0.065), vector (0.065)
 ------------------------------------------------------------------------

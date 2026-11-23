@@ -18,9 +18,16 @@ from typing import Dict, List, Tuple, Any, Optional
 
 import spacy
 from transformers import pipeline
-import gensim
-from gensim import corpora
-from gensim.models import LdaModel
+try:
+    import gensim
+    from gensim import corpora
+    from gensim.models import LdaModel
+    GENSIM_AVAILABLE = True
+except ImportError:
+    GENSIM_AVAILABLE = False
+
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import LatentDirichletAllocation as SklearnLDA
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -231,57 +238,111 @@ def train_lda_topic_model(texts: List[str],
     if not processed_docs:
         processed_docs = [["natural", "language", "processing", "model"]]
 
-    dictionary = corpora.Dictionary(processed_docs)
-    # Filter extreme frequencies
-    dictionary.filter_extremes(no_below=1, no_above=0.95, keep_n=1000)
-    corpus = [dictionary.doc2bow(doc) for doc in processed_docs]
+    if GENSIM_AVAILABLE:
+        dictionary = corpora.Dictionary(processed_docs)
+        # Filter extreme frequencies
+        dictionary.filter_extremes(no_below=1, no_above=0.95, keep_n=1000)
+        corpus = [dictionary.doc2bow(doc) for doc in processed_docs]
 
-    lda_model = LdaModel(
-        corpus=corpus,
-        id2word=dictionary,
-        num_topics=num_topics,
-        passes=passes,
-        alpha="auto",
-        random_state=42
-    )
+        lda_model = LdaModel(
+            corpus=corpus,
+            id2word=dictionary,
+            num_topics=num_topics,
+            passes=passes,
+            alpha="auto",
+            random_state=42
+        )
 
-    topics_summary = []
-    topics_text = (
-        "========================================================================\n"
-        "           GENSIM LDA TOPIC MODELING EMPIRICAL BENCHMARK                \n"
-        "Course: Natural Language Processing (NLP)                               \n"
-        "Team: Sameer Sirsath (202401110023) & Rameshwar Sanap (202401110021)    \n"
-        "========================================================================\n\n"
-        f"Hyperparameters: num_topics={num_topics}, passes={passes}, alpha='auto'\n"
-        f"Dictionary Size: {len(dictionary)} vocabulary terms\n"
-        f"Processed Chunks: {len(processed_docs)}\n\n"
-        "------------------------------------------------------------------------\n"
-        "TOPIC ID | TOP DOMINANT KEYWORDS & CONTRIBUTION WEIGHTS\n"
-        "------------------------------------------------------------------------\n"
-    )
+        topics_summary = []
+        topics_text = (
+            "========================================================================\n"
+            "           GENSIM LDA TOPIC MODELING EMPIRICAL BENCHMARK                \n"
+            "Course: Natural Language Processing (NLP)                               \n"
+            "Team: Sameer Sirsath (202401110023) & Rameshwar Sanap (202401110021)    \n"
+            "========================================================================\n\n"
+            f"Engine: Gensim LdaModel\n"
+            f"Hyperparameters: num_topics={num_topics}, passes={passes}, alpha='auto'\n"
+            f"Dictionary Size: {len(dictionary)} vocabulary terms\n"
+            f"Processed Chunks: {len(processed_docs)}\n\n"
+            "------------------------------------------------------------------------\n"
+            "TOPIC ID | TOP DOMINANT KEYWORDS & CONTRIBUTION WEIGHTS\n"
+            "------------------------------------------------------------------------\n"
+        )
 
-    for topic_id in range(num_topics):
-        topic_words_weighted = lda_model.show_topic(topic_id, topn=num_words)
-        words_str = ", ".join([f"{word} ({weight:.3f})" for word, weight in topic_words_weighted])
-        topics_summary.append({
-            "topic_id": topic_id,
-            "keywords": [w for w, _ in topic_words_weighted],
-            "weighted_keywords": topic_words_weighted
-        })
-        topics_text += f"Topic #{topic_id + 1:<2} | {words_str}\n"
+        for topic_id in range(num_topics):
+            topic_words_weighted = lda_model.show_topic(topic_id, topn=num_words)
+            words_str = ", ".join([f"{word} ({weight:.3f})" for word, weight in topic_words_weighted])
+            topics_summary.append({
+                "topic_id": topic_id,
+                "keywords": [w for w, _ in topic_words_weighted],
+                "weighted_keywords": topic_words_weighted
+            })
+            topics_text += f"Topic #{topic_id + 1:<2} | {words_str}\n"
 
-    topics_text += "------------------------------------------------------------------------\n"
+        topics_text += "------------------------------------------------------------------------\n"
 
-    with open(output_file, "w", encoding="utf-8") as f:
-        f.write(topics_text)
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(topics_text)
 
-    return {
-        "lda_model": lda_model,
-        "dictionary": dictionary,
-        "corpus": corpus,
-        "topics": topics_summary,
-        "output_file": output_file
-    }
+        return {
+            "lda_model": lda_model,
+            "dictionary": dictionary,
+            "corpus": corpus,
+            "topics": topics_summary,
+            "output_file": output_file
+        }
+    else:
+        # Graceful fallback: Scikit-learn LatentDirichletAllocation
+        doc_strings = [" ".join(doc) for doc in processed_docs]
+        cv = CountVectorizer(max_features=1000, stop_words="english")
+        dtm = cv.fit_transform(doc_strings)
+        feature_names = cv.get_feature_names_out()
+
+        actual_topics = min(num_topics, max(1, dtm.shape[0]))
+        lda_model = SklearnLDA(n_components=actual_topics, max_iter=passes, random_state=42)
+        lda_model.fit(dtm)
+
+        topics_summary = []
+        topics_text = (
+            "========================================================================\n"
+            "         SKLEARN LDA TOPIC MODELING EMPIRICAL BENCHMARK (FALLBACK)       \n"
+            "Course: Natural Language Processing (NLP)                               \n"
+            "Team: Sameer Sirsath (202401110023) & Rameshwar Sanap (202401110021)    \n"
+            "========================================================================\n\n"
+            f"Engine: Scikit-Learn LatentDirichletAllocation\n"
+            f"Hyperparameters: n_components={actual_topics}, max_iter={passes}\n"
+            f"Vocabulary Size: {len(feature_names)} terms\n"
+            f"Processed Chunks: {len(processed_docs)}\n\n"
+            "------------------------------------------------------------------------\n"
+            "TOPIC ID | TOP DOMINANT KEYWORDS & CONTRIBUTION WEIGHTS\n"
+            "------------------------------------------------------------------------\n"
+        )
+
+        for topic_id, topic_weights in enumerate(lda_model.components_):
+            sum_w = topic_weights.sum()
+            norm_w = topic_weights / (sum_w if sum_w > 0 else 1.0)
+            top_indices = norm_w.argsort()[:-num_words - 1:-1]
+            topic_words_weighted = [(feature_names[i], float(norm_w[i])) for i in top_indices]
+            words_str = ", ".join([f"{word} ({weight:.3f})" for word, weight in topic_words_weighted])
+            topics_summary.append({
+                "topic_id": topic_id,
+                "keywords": [w for w, _ in topic_words_weighted],
+                "weighted_keywords": topic_words_weighted
+            })
+            topics_text += f"Topic #{topic_id + 1:<2} | {words_str}\n"
+
+        topics_text += "------------------------------------------------------------------------\n"
+
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(topics_text)
+
+        return {
+            "lda_model": lda_model,
+            "dictionary": feature_names,
+            "corpus": dtm,
+            "topics": topics_summary,
+            "output_file": output_file
+        }
 
 
 # -------------------------------------------------------------------------
