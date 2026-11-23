@@ -133,6 +133,7 @@ with st.sidebar:
     st.markdown("#### ⚙️ LLM Backend Status")
 
     # Secure Backend Status Indicator (Keys configured securely in backend .env)
+    has_cloud_llm = bool(os.environ.get("GROQ_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
     if os.environ.get("GROQ_API_KEY"):
         backend_status = "⚡ Cloud (Groq: llama-3.1-8b)"
         backend_badge = "Cloud Acceleration Enabled"
@@ -144,7 +145,18 @@ with st.sidebar:
         backend_badge = "Offline Local Execution"
 
     st.info(f"**Active LLM:** {backend_status}\n\n*Status:* `{backend_badge}`")
-    st.caption("🔒 *LLM API credentials are configured securely in the backend (.env / server environment).*")
+    st.caption("🔒 *LLM API credentials are configured securely in the backend (.env / Streamlit Secrets).*")
+
+    if not has_cloud_llm:
+        with st.expander("☁️ Deploying on Streamlit Cloud?", expanded=False):
+            st.markdown(
+                "When deployed on **Streamlit Cloud**, add your free Groq or Gemini key in **App Settings -> Secrets**:\n"
+                "```toml\n"
+                "GROQ_API_KEY = \"gsk_...\"\n"
+                "# OR\n"
+                "GOOGLE_API_KEY = \"AIzaSy_...\"\n"
+                "```"
+            )
 
     st.markdown("---")
     st.markdown("#### 📚 Reference Corpus & Vector Store")
