@@ -36,7 +36,8 @@ from src.vector_db import (
     get_or_create_vector_store,
     ingest_single_pdf,
     ingest_references_directory,
-    get_indexed_sources_summary
+    get_indexed_sources_summary,
+    reindex_all_books_completely
 )
 
 
@@ -110,6 +111,8 @@ def main():
                         help="Directory containing reference PDFs (default: data/references)")
     parser.add_argument("--list", action="store_true",
                         help="List all currently indexed document sources in ChromaDB")
+    parser.add_argument("--complete", action="store_true",
+                        help="Completely index 100% of all pages from all books in data/, data/references/, and data/references_nlp/")
     parser.add_argument("--create-sample", action="store_true",
                         help="Generate a sample reference academic PDF in data/references/ and ingest it")
 
@@ -120,6 +123,22 @@ def main():
     print("Course: Natural Language Processing (NLP)")
     print("Team: Sameer Sirsath (202401110023) & Rameshwar Sanap (202401110021)")
     print("=" * 70)
+
+    # 1. Complete Re-indexing of All Books
+    if args.complete:
+        print("\n🚀 Commencing 100% COMPLETE indexing of all reference books & papers...")
+        print("Corpus directories: data/sample_book.pdf, data/references/, data/references_nlp/")
+        res = reindex_all_books_completely()
+        print(f"\n✅ Complete Ingestion Finished!")
+        print(f"   - Total Documents Processed : {res['total_documents']}")
+        print(f"   - Total Pages Indexed       : {res['total_pages_indexed']}")
+        print(f"   - Total Chunks in ChromaDB  : {res['total_chunks_indexed']}")
+        print("\nDocument Breakdown:")
+        print("-" * 60)
+        for d in res["documents_detail"]:
+            print(f"  • {d['source']:<42} : {d['pages']:>4} pages -> {d['chunks']:>5} chunks")
+        print("-" * 60)
+        return
 
     # 1. List Sources
     if args.list:

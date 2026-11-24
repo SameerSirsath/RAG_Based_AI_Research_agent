@@ -52,12 +52,17 @@ _TFIDF_MATRIX = None
 
 
 def get_embedding_model() -> HuggingFaceEmbeddings:
-    """Returns singleton HuggingFaceEmbeddings instance."""
+    """Returns singleton HuggingFaceEmbeddings instance with automatic GPU/CPU selection."""
     global _EMBEDDINGS
     if _EMBEDDINGS is None:
+        try:
+            import torch
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        except Exception:
+            device = "cpu"
         _EMBEDDINGS = HuggingFaceEmbeddings(
             model_name=EMBEDDING_MODEL_NAME,
-            model_kwargs={"device": "cpu"},
+            model_kwargs={"device": device},
             encode_kwargs={"normalize_embeddings": True}
         )
     return _EMBEDDINGS
@@ -175,24 +180,44 @@ def refresh_lexical_cache(vector_store: Chroma):
         logger.warning(f"Could not build TF-IDF lexical cache: {e}")
 
 
-def ingest_single_pdf(pdf_path: str, max_pages: Optional[int] = 12) -> Dict[str, Any]:
+def ingest_single_pdf(pdf_path: str,
+                      max_pages: Optional[int] = None,
+                      skip_if_exists: bool = False,
+                      auto_refresh_cache: bool = True) -> Dict[str, Any]:
     """
     Ingests an individual reference academic PDF into ChromaDB without overwriting
     existing documents. Extracts pages, splits into chunks, indexes embeddings,
     and refreshes the hybrid lexical cache.
-    Limits to core pages (default: 12) to ensure fast indexing while capturing core methodology.
+    When max_pages is None, indexes 100% of the entire book/document.
     """
-    global _VECTOR_STORE
+    global _VECTOR_STORE, _CHUNKS_CACHE
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF not found at: {pdf_path}")
 
     if _VECTOR_STORE is None:
         get_or_create_vector_store()
 
-    doc = fitz.open(pdf_path)
     source_name = os.path.basename(pdf_path)
+
+    # Check if already indexed to avoid duplicates
+    if skip_if_exists and _CHUNKS_CACHE:
+        existing_sources = set(doc.metadata.get("source") for doc in _CHUNKS_CACHE)
+        if source_name in existing_sources:
+            existing_count = sum(1 for doc in _CHUNKS_CACHE if doc.metadata.get("source") == source_name)
+            logger.info(f"Source '{source_name}' already indexed with {existing_count} chunks. Skipping duplicate ingestion.")
+            return {
+                "source": source_name,
+                "pdf_path": pdf_path,
+                "pages_processed": 0,
+                "total_doc_pages": 0,
+                "chunks_indexed": 0,
+                "total_chunks_in_db": len(_CHUNKS_CACHE),
+                "skipped": True
+            }
+
+    doc = fitz.open(pdf_path)
     total_doc_pages = len(doc)
-    pages_to_index = min(total_doc_pages, max_pages) if max_pages else total_doc_pages
+    pages_to_index = min(total_doc_pages, max_pages) if max_pages is not None else total_doc_pages
     splitter = get_text_splitter()
     new_docs = []
 
@@ -217,8 +242,12 @@ def ingest_single_pdf(pdf_path: str, max_pages: Optional[int] = 12) -> Dict[str,
     doc.close()
 
     if new_docs:
-        _VECTOR_STORE.add_documents(new_docs)
-        refresh_lexical_cache(_VECTOR_STORE)
+        # Add in safe batches of 500
+        batch_size = 500
+        for i in range(0, len(new_docs), batch_size):
+            _VECTOR_STORE.add_documents(new_docs[i:i + batch_size])
+        if auto_refresh_cache:
+            refresh_lexical_cache(_VECTOR_STORE)
         logger.info(f"Ingested {len(new_docs)} chunks from {source_name} ({pages_to_index} pages) into ChromaDB.")
 
     return {
@@ -227,15 +256,22 @@ def ingest_single_pdf(pdf_path: str, max_pages: Optional[int] = 12) -> Dict[str,
         "pages_processed": pages_to_index,
         "total_doc_pages": total_doc_pages,
         "chunks_indexed": len(new_docs),
-        "total_chunks_in_db": len(_CHUNKS_CACHE)
+        "total_chunks_in_db": len(_CHUNKS_CACHE) + (len(new_docs) if not auto_refresh_cache else 0),
+        "skipped": False
     }
 
 
-def ingest_references_directory(dir_path: str = "data/references") -> Dict[str, Any]:
+def ingest_references_directory(dir_path: str = "data/references",
+                                skip_if_exists: bool = True,
+                                max_pages: Optional[int] = None) -> Dict[str, Any]:
     """
     Scans a directory for all .pdf files, extracts, chunks, and appends them
     to the persistent ChromaDB collection.
     """
+    global _VECTOR_STORE
+    if _VECTOR_STORE is None:
+        get_or_create_vector_store()
+
     os.makedirs(dir_path, exist_ok=True)
     pdf_files = [os.path.join(dir_path, f) for f in os.listdir(dir_path) if f.lower().endswith(".pdf")]
 
@@ -244,18 +280,130 @@ def ingest_references_directory(dir_path: str = "data/references") -> Dict[str, 
 
     for pdf_path in pdf_files:
         try:
-            res = ingest_single_pdf(pdf_path)
+            res = ingest_single_pdf(
+                pdf_path,
+                max_pages=max_pages,
+                skip_if_exists=skip_if_exists,
+                auto_refresh_cache=False
+            )
             results.append(res)
-            total_new_chunks += res["chunks_indexed"]
+            total_new_chunks += res.get("chunks_indexed", 0)
         except Exception as e:
             logger.error(f"Failed to ingest {pdf_path}: {e}")
-            results.append({"source": os.path.basename(pdf_path), "error": str(e), "chunks_indexed": 0})
+            results.append({"source": os.path.basename(pdf_path), "error": str(e), "chunks_indexed": 0, "skipped": False})
+
+    # Batch refresh lexical cache once at the end
+    if total_new_chunks > 0:
+        refresh_lexical_cache(_VECTOR_STORE)
 
     return {
         "directory": dir_path,
         "pdf_count": len(pdf_files),
         "total_new_chunks": total_new_chunks,
         "files_detail": results
+    }
+
+
+def reindex_all_books_completely(corpus_dirs: Optional[List[str]] = None) -> Dict[str, Any]:
+    """
+    Completely re-indexes 100% of all pages from all available academic books,
+    textbooks, and research papers across data/, data/references/, and data/references_nlp/.
+    """
+    global _VECTOR_STORE, _CHUNKS_CACHE
+    if corpus_dirs is None:
+        corpus_dirs = ["data/references", "data/references_nlp"]
+
+    import chromadb
+    client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
+    try:
+        client.delete_collection(COLLECTION_NAME)
+        logger.info("Cleared existing ChromaDB collection for complete reindexing.")
+    except Exception:
+        pass
+
+    embeddings = get_embedding_model()
+    _VECTOR_STORE = Chroma(
+        client=client,
+        collection_name=COLLECTION_NAME,
+        embedding_function=embeddings
+    )
+    _CHUNKS_CACHE = []
+
+    # Collect all unique PDF files
+    pdf_files = []
+    if os.path.exists("data/sample_book.pdf"):
+        pdf_files.append("data/sample_book.pdf")
+
+    for d in corpus_dirs:
+        if os.path.exists(d):
+            for f in sorted(os.listdir(d)):
+                if f.lower().endswith(".pdf"):
+                    pdf_files.append(os.path.join(d, f))
+
+    seen = set()
+    unique_pdfs = []
+    for p in pdf_files:
+        b = os.path.basename(p)
+        if b not in seen:
+            seen.add(b)
+            unique_pdfs.append(p)
+
+    splitter = get_text_splitter()
+    results = []
+    total_chunks = 0
+    total_pages = 0
+
+    for pdf_path in unique_pdfs:
+        try:
+            source_name = os.path.basename(pdf_path)
+            doc = fitz.open(pdf_path)
+            n_pages = len(doc)
+            total_pages += n_pages
+            doc_chunks = []
+
+            for page_idx in range(n_pages):
+                page_num = page_idx + 1
+                raw_text = doc[page_idx].get_text().strip()
+                if not raw_text:
+                    continue
+                tagged_text = f"[{source_name} | Page {page_num}]\n{raw_text}"
+                splits = splitter.split_text(tagged_text)
+                for c_idx, split_text in enumerate(splits):
+                    doc_chunks.append(Document(
+                        page_content=split_text.strip(),
+                        metadata={
+                            "source": source_name,
+                            "page": page_num,
+                            "chunk_id": f"{source_name}_p{page_num}_c{c_idx+1}",
+                            "char_count": len(split_text.strip())
+                        }
+                    ))
+            doc.close()
+
+            if doc_chunks:
+                batch_size = 500
+                for i in range(0, len(doc_chunks), batch_size):
+                    _VECTOR_STORE.add_documents(doc_chunks[i:i + batch_size])
+                total_chunks += len(doc_chunks)
+
+            results.append({
+                "source": source_name,
+                "pages": n_pages,
+                "chunks": len(doc_chunks)
+            })
+            logger.info(f"Completely indexed '{source_name}': {len(doc_chunks)} chunks across all {n_pages} pages.")
+        except Exception as e:
+            logger.error(f"Error indexing {pdf_path}: {e}")
+            results.append({"source": os.path.basename(pdf_path), "error": str(e), "chunks": 0})
+
+    # Rebuild lexical cache once at the end
+    refresh_lexical_cache(_VECTOR_STORE)
+
+    return {
+        "total_documents": len(unique_pdfs),
+        "total_pages_indexed": total_pages,
+        "total_chunks_indexed": total_chunks,
+        "documents_detail": results
     }
 
 

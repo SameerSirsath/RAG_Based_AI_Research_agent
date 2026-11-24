@@ -106,7 +106,9 @@ from src.vector_db import (
     hybrid_search,
     fetch_and_ingest_arxiv,
     ingest_single_pdf,
-    get_indexed_sources_summary
+    ingest_references_directory,
+    get_indexed_sources_summary,
+    reindex_all_books_completely
 )
 from src.graph import run_research_workflow, generate_markdown_report
 
@@ -133,19 +135,36 @@ with st.sidebar:
     st.markdown("#### ⚙️ LLM Backend Status")
 
     # Secure Backend Status Indicator (Keys configured securely in backend .env)
-    has_cloud_llm = bool(os.environ.get("GROQ_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
-    if os.environ.get("GROQ_API_KEY"):
-        backend_status = "⚡ Cloud (Groq: llama-3.1-8b)"
-        backend_badge = "Cloud Acceleration Enabled"
-    elif os.environ.get("GOOGLE_API_KEY"):
-        backend_status = "🌐 Cloud (Gemini: gemini-2.5-flash)"
-        backend_badge = "Cloud Acceleration Enabled"
+    google_key = os.environ.get("GOOGLE_API_KEY")
+    groq_key = os.environ.get("GROQ_API_KEY")
+    has_cloud_llm = bool(google_key or groq_key)
+
+    backend_options = []
+    if google_key:
+        backend_options.append("🌐 Google Gemini (gemini-2.5-flash)")
+    if groq_key:
+        backend_options.append("⚡ Groq Cloud (qwen/qwen3.8-27b)")
+    backend_options.append("💻 Local Ollama (llama3.2)")
+
+    selected_llm_label = st.selectbox(
+        "Active LLM Backend",
+        options=backend_options,
+        index=0,
+        help="Select inference provider for multi-agent literature synthesis. Multi-provider failover enabled."
+    )
+
+    if "Gemini" in selected_llm_label:
+        active_backend_key = "gemini"
+        backend_badge = "Gemini 2.5 Flash Cloud"
+    elif "Groq" in selected_llm_label:
+        active_backend_key = "groq"
+        backend_badge = "Groq Qwen 27B Cloud"
     else:
-        backend_status = "💻 Local / Edge (Ollama: llama3.2)"
+        active_backend_key = "ollama"
         backend_badge = "Offline Local Execution"
 
-    st.info(f"**Active LLM:** {backend_status}\n\n*Status:* `{backend_badge}`")
-    st.caption("🔒 *LLM API credentials are configured securely in the backend (.env / Streamlit Secrets).*")
+    st.info(f"**Active LLM:** {selected_llm_label}\n\n*Status:* `{backend_badge}`")
+    st.caption("🔒 *API credentials configured in .env / Streamlit Secrets. Automatic multi-provider failover is active.*")
 
     if not has_cloud_llm:
         with st.expander("☁️ Deploying on Streamlit Cloud?", expanded=False):
@@ -165,8 +184,31 @@ with st.sidebar:
     try:
         db_summary = get_indexed_sources_summary()
         st.markdown(f"**Database Status:** `{db_summary['total_chunks']} chunks` across `{db_summary['unique_sources_count']} sources`")
+        with st.expander(f"📑 View All Indexed Papers ({db_summary['unique_sources_count']})", expanded=False):
+            for src, count in sorted(db_summary["sources"].items()):
+                st.caption(f"• `{src}`: **{count}** chunks")
     except Exception:
         pass
+
+    col_ing1, col_ing2 = st.columns(2)
+    with col_ing1:
+        if st.button("📚 Ingest 'references/'", help="Sync all papers from data/references/ into ChromaDB"):
+            with st.spinner("Ingesting from data/references/..."):
+                res = ingest_references_directory("data/references", skip_if_exists=True)
+            st.success(f"Added {res['total_new_chunks']} chunks!")
+            st.rerun()
+    with col_ing2:
+        if st.button("📖 Ingest 'references_nlp/'", help="Sync all papers from data/references_nlp/ into ChromaDB"):
+            with st.spinner("Ingesting from data/references_nlp/..."):
+                res = ingest_references_directory("data/references_nlp", skip_if_exists=True)
+            st.success(f"Added {res['total_new_chunks']} chunks!")
+            st.rerun()
+
+    if st.button("🔥 Re-Index All Books Completely (100% of pages)", help="Extracts and indexes every single page from all books & papers across data/, data/references/, and data/references_nlp/"):
+        with st.spinner("Executing complete 100% corpus indexing across all pages (GPU Accelerated)..."):
+            res = reindex_all_books_completely()
+        st.success(f"Indexed all {res['total_documents']} books completely! {res['total_chunks_indexed']:,} chunks across {res['total_pages_indexed']:,} pages.")
+        st.rerun()
 
     uploaded_file = st.file_uploader("Add Academic Reference PDF", type=["pdf"])
     if uploaded_file is not None:
@@ -220,6 +262,49 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # TAB 1: Multi-Agent Research Assistant
 # =========================================================================
 
+def split_response_for_preview(text: str):
+    """
+    Splits an academic response into a clean executive summary preview
+    and returns the full text for the 'Read More' expander.
+    """
+    if not text:
+        return "", ""
+    text_clean = text.strip()
+    if len(text_clean) <= 350:
+        return text_clean, text_clean
+
+    import re
+    # Check if text contains ### 📌 Executive Summary or ### Executive Summary
+    match = re.search(r'(###\s*.*?(?:Executive Summary|Summary).*?\n\n)(.*?)(?=\n###|\n---|$)', text_clean, re.DOTALL | re.IGNORECASE)
+    if match:
+        header = match.group(1).strip()
+        body = match.group(2).strip()
+        return f"{header}\n\n{body}", text_clean
+
+    # Check for first heading section
+    sections = re.split(r'\n(?=###?\s|\n---)', text_clean)
+    if len(sections) > 1:
+        first_sec = sections[0].strip()
+        if len(first_sec) > 120:
+            return first_sec, text_clean
+        elif len(sections) > 1:
+            combined = first_sec + "\n\n" + sections[1].strip()
+            return combined, text_clean
+
+    # Fallback to first 2 paragraphs
+    paragraphs = [p.strip() for p in text_clean.split('\n\n') if p.strip()]
+    preview_parts = []
+    curr_len = 0
+    for p in paragraphs:
+        if curr_len + len(p) <= 450 or not preview_parts:
+            preview_parts.append(p)
+            curr_len += len(p)
+        else:
+            break
+    preview = "\n\n".join(preview_parts)
+    return preview, text_clean
+
+
 with tab1:
     st.markdown("### 🔍 Scholarly Research Assistant")
     st.caption("Ask technical questions in any language (e.g., English, French, Hindi, Spanish). The 4 agents will research, analyze, synthesize, and cite verified evidence.")
@@ -229,19 +314,29 @@ with tab1:
     with col_s1:
         if st.button("What is Self-Attention in Transformers?"):
             st.session_state["query_input"] = "What is Self-Attention in Transformers?"
+            st.session_state["chat_history"] = []
     with col_s2:
         if st.button("Explain Hybrid RAG Retrieval"):
             st.session_state["query_input"] = "How does Hybrid Retrieval combine sparse and dense vector representations in RAG?"
+            st.session_state["chat_history"] = []
     with col_s3:
         if st.button("DistilBERT vs BERT"):
             st.session_state["query_input"] = "Compare DistilBERT and BERT architecture and compression advantages."
-    with col_s4:
-        if st.button("Multilingual Query (French)"):
-            st.session_state["query_input"] = "Quels sont les avantages de l'architecture Transformer par rapport aux RNNs?"
+            st.session_state["chat_history"] = []
+    # with col_s4:
+    #     if st.button("Multilingual Query (French)"):
+    #         st.session_state["query_input"] = "Quels sont les avantages de l'architecture Transformer par rapport aux RNNs?"
+    #         st.session_state["chat_history"] = []
 
     # Chat history state
     if "chat_history" not in st.session_state:
         st.session_state["chat_history"] = []
+
+    col_input, col_clear = st.columns([5, 1])
+    with col_clear:
+        if st.button("🧹 Clear Output", help="Clear current question and response from screen"):
+            st.session_state["chat_history"] = []
+            st.rerun()
 
     user_query = st.chat_input("Enter your academic inquiry or research topic...")
 
@@ -250,16 +345,20 @@ with tab1:
         user_query = st.session_state.pop("query_input")
 
     if user_query:
-        # Display user question
-        st.session_state["chat_history"].append({"role": "user", "content": user_query})
+        # Reset chat history so previous output disappears when a new question is asked
+        st.session_state["chat_history"] = [{"role": "user", "content": user_query}]
 
         # Run multi-agent graph
         with st.status("🚀 4-Agent Research Swarm Active...", expanded=True) as status_box:
             st.write("🕵️ **Research Agent**: Processing language gateway & hybrid ChromaDB search...")
             time.sleep(0.3)
             
-            # Execute workflow
-            state = run_research_workflow(user_query, force_arxiv=force_arxiv_toggle)
+            # Execute workflow with selected backend
+            state = run_research_workflow(
+                user_query,
+                force_arxiv=force_arxiv_toggle,
+                model_backend=active_backend_key
+            )
             
             st.write("🔬 **Analysis Agent**: Extracting spaCy entities & DistilBERT rhetorical stance...")
             time.sleep(0.2)
@@ -278,7 +377,24 @@ with tab1:
     # Render Chat History
     for msg in st.session_state["chat_history"]:
         with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+            if msg["role"] == "user":
+                st.markdown(msg["content"])
+            else:
+                full_content = msg.get("content", "")
+                m_state = msg.get("state", {})
+                intent = m_state.get("intent", "academic_research")
+
+                # If conversational or short response, show directly
+                if intent == "conversational" or len(full_content) <= 350:
+                    st.markdown(full_content)
+                else:
+                    preview, full_text = split_response_for_preview(full_content)
+                    # Display concise executive synthesis upfront
+                    st.markdown(preview)
+                    
+                    # Collapsible expander allowing user to read complete response
+                    with st.expander("📖 Read More (Complete Detailed Academic Response)", expanded=False):
+                        st.markdown(full_text)
 
             if msg["role"] == "assistant" and "state" in msg:
                 m_state = msg["state"]

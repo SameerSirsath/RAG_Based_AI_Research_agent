@@ -52,6 +52,7 @@ class AgentState(TypedDict):
     intent: str  # 'conversational' | 'academic_research'
     force_arxiv: bool
     arxiv_searched: bool
+    model_backend: Optional[str]
     retrieved_chunks: List[Dict[str, Any]]
     entities: List[Dict[str, str]]
     chunk_sentiments: List[Dict[str, Any]]
@@ -67,22 +68,31 @@ class AgentState(TypedDict):
 
 def get_llm(temperature: float = 0.1, requested_backend: Optional[str] = None):
     """
-    Factory function prioritizing:
-    1. GROQ_API_KEY -> ChatGroq(model="llama-3.1-8b-instant")
-    2. GOOGLE_API_KEY -> ChatGoogleGenerativeAI(model="gemini-2.5-flash")
-    3. Default Fallback -> ChatOllama(model="llama3.2:1b" or "llama3.2:latest")
+    Factory function prioritizing verified cloud LLMs:
+    1. Google Gemini Cloud -> gemini-2.5-flash (ultra-fast, highly accurate)
+    2. Groq Cloud -> qwen/qwen3.8-27b (high throughput fallback)
+    3. Default Fallback -> ChatOllama (local offline execution)
     """
-    # 1. Groq Cloud Backend
-    groq_key = os.environ.get("GROQ_API_KEY")
-    if (requested_backend == "groq" or not requested_backend) and groq_key:
-        logger.info("Initializing Groq Cloud LLM (llama-3.1-8b-instant)...")
-        return ChatGroq(model="llama-3.1-8b-instant", temperature=temperature, api_key=groq_key)
-
-    # 2. Google Gemini Cloud Backend
     google_key = os.environ.get("GOOGLE_API_KEY")
-    if (requested_backend == "gemini" or not requested_backend) and google_key:
+    groq_key = os.environ.get("GROQ_API_KEY")
+
+    # Explicit backend requests
+    if requested_backend == "gemini" and google_key:
         logger.info("Initializing Google Gemini Cloud LLM (gemini-2.5-flash)...")
         return ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=temperature, google_api_key=google_key)
+
+    if requested_backend == "groq" and groq_key:
+        logger.info("Initializing Groq Cloud LLM (qwen/qwen3.8-27b)...")
+        return ChatGroq(model="qwen/qwen3.8-27b", temperature=temperature, api_key=groq_key)
+
+    # Automatic selection: Prefer Gemini for verified stability, then Groq
+    if google_key:
+        logger.info("Initializing Google Gemini Cloud LLM (gemini-2.5-flash)...")
+        return ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=temperature, google_api_key=google_key)
+
+    if groq_key:
+        logger.info("Initializing Groq Cloud LLM (qwen/qwen3.8-27b)...")
+        return ChatGroq(model="qwen/qwen3.8-27b", temperature=temperature, api_key=groq_key)
 
     # 3. Local Ollama Backend
     try:
@@ -91,29 +101,46 @@ def get_llm(temperature: float = 0.1, requested_backend: Optional[str] = None):
         return ChatOllama(model=ollama_model, temperature=temperature, base_url="http://localhost:11434")
     except Exception as e:
         logger.warning(f"Ollama initialization notice: {e}")
-        # Try fallback to standard llama3.2
         return ChatOllama(model="llama3.2", temperature=temperature, base_url="http://localhost:11434")
 
 
 def safe_invoke_llm(llm, messages: List[Any], fallback_context: str = "") -> str:
     """
-    Safely invokes LLM with fallback heuristic response generation in case the LLM backend
-    is completely offline or unreachable.
+    Safely invokes LLM with automatic multi-candidate fallback across available cloud
+    and local backends before reverting to structured rule-based academic synthesis.
     """
-    try:
-        response = llm.invoke(messages)
-        if hasattr(response, "content"):
-            return response.content.strip()
-        return str(response).strip()
-    except Exception as e:
-        logger.error(f"LLM invocation failed: {e}. Utilizing structured academic rule-based fallback.")
-        # Graceful academic synthesis fallback if LLM server is unreachable
-        return (
-            f"### Academic Synthesis Summary\n\n"
-            f"Based on the empirical corpus analysis, the key findings regarding the query are detailed below:\n\n"
-            f"{fallback_context}\n\n"
-            f"*Note: Synthesized directly from retrieved vector index passages.*"
-        )
+    google_key = os.environ.get("GOOGLE_API_KEY")
+    groq_key = os.environ.get("GROQ_API_KEY")
+
+    # Build candidate chain starting with the chosen LLM
+    candidate_llms = [llm] if llm is not None else []
+    if google_key:
+        candidate_llms.append(ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.1, google_api_key=google_key))
+    if groq_key:
+        candidate_llms.append(ChatGroq(model="qwen/qwen3.8-27b", temperature=0.1, api_key=groq_key))
+
+    for idx, candidate in enumerate(candidate_llms):
+        if candidate is None:
+            continue
+        try:
+            response = candidate.invoke(messages)
+            if hasattr(response, "content") and response.content:
+                text = response.content.strip()
+                if text:
+                    return text
+            elif str(response).strip():
+                return str(response).strip()
+        except Exception as e:
+            logger.warning(f"LLM candidate invocation error: {e}. Trying next available provider...")
+            continue
+
+    logger.error("All LLM providers unavailable. Utilizing structured academic rule-based fallback.")
+    return (
+        f"### 📌 Academic Synthesis Summary\n\n"
+        f"Based on the empirical corpus analysis, the key findings regarding the query are detailed below:\n\n"
+        f"{fallback_context}\n\n"
+        f"*Note: Synthesized directly from retrieved vector index passages.*"
+    )
 
 
 # -------------------------------------------------------------------------
@@ -275,7 +302,8 @@ def writing_agent(state: AgentState) -> Dict[str, Any]:
     sentiments = state.get("chunk_sentiments", [])
     trace = list(state.get("execution_trace", []))
 
-    llm = get_llm()
+    backend = state.get("model_backend")
+    llm = get_llm(requested_backend=backend)
 
     # Conversational Greeting
     if intent == "conversational":
@@ -312,21 +340,36 @@ def writing_agent(state: AgentState) -> Dict[str, Any]:
 
     system_prompt = (
         "You are an expert Academic Research Assistant in Natural Language Processing (NLP).\n"
-        "Synthesize a clear, scholarly, well-structured answer to the user's research question.\n"
-        "STRICT GROUNDING RULES:\n"
-        "1. Base your answer STRICTLY and EXCLUSIVELY on the provided source passages.\n"
+        "Synthesize a rigorous, scholarly, and articulate answer to the user's research question.\n"
+        "STRICT GROUNDING & CITATION RULES:\n"
+        "1. Base your answer strictly on the provided retrieved source passages.\n"
         "2. Do NOT hallucinate claims or facts not in the context.\n"
-        "3. You MUST include explicit inline citations for every factual claim, referencing either [Page X] or [arXiv: ID].\n"
-        "4. Structure your response with an Executive Summary, Key Technical Principles, Comparative Insights, and Citations."
+        "3. You MUST include explicit inline citations for factual claims, referencing [source_name | Page X] or [arXiv: ID].\n"
+        "4. REQUIRED RESPONSE STRUCTURE:\n"
+        "   ### 📌 Executive Summary\n"
+        "   Provide a comprehensive, direct, and well-written 2-4 sentence summary answering the question completely.\n\n"
+        "   ### 🔬 Core Technical Architecture & Principles\n"
+        "   Elaborate in depth on the underlying mechanics, mathematical formulations, and vector representations with inline citations.\n\n"
+        "   ### 📊 Comparative Analysis & Practical Trade-Offs\n"
+        "   Synthesize advantages, algorithmic trade-offs, and empirical findings.\n\n"
+        "   ### 📚 Grounded Academic Citations\n"
+        "   Summarize all specific documents and pages utilized."
     )
 
     user_prompt = (
         f"Research Question: {query}\n\n"
         f"Retrieved Academic Evidence Passages:\n{context_str}\n\n"
-        "Synthesize your rigorous, cited scholarly response now:"
+        "Synthesize your rigorous, cited scholarly response now following the required structure:"
     )
 
-    fallback_text = "\n\n".join([f"- **Citation [{c.get('source')} | Page {c.get('page')}]:**\n  {c.get('content')[:250]}..." for c in chunks])
+    fallback_passages = []
+    for c in chunks:
+        src = c.get("source", "PDF")
+        page = c.get("page", "N/A")
+        content_snippet = c.get("content", "").strip()[:300].rsplit(".", 1)[0] + "."
+        fallback_passages.append(f"- **Evidence from `{src}` (Page {page}):**\n  {content_snippet}")
+    fallback_text = "\n\n".join(fallback_passages)
+
     draft_text = safe_invoke_llm(
         llm,
         [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)],
